@@ -1,0 +1,28 @@
+# 是否启用数据库连接
+connect: true
+
+#以UUID储存玩家数据而非玩家名
+#如果你是离线服务器可以设置为false，数据可读性好点
+#注意！在第一次运行之后修改此选项会导致数据丢失
+UUIDMode: true
+
+# 数据库类型，可选：sqlite / mysql / postgres
+database:
+  type: "postgres"
+
+  # 通用参数（适用于所有类型）
+  host: "localhost"
+  port: 5432
+  db: "my_database"
+  user: "postgres"
+  password: ""
+
+  # SQLite 特有参数，指定文件位置，如: data/data.db 将存于plugins/VariableSystem/data/data.db
+  file: "data.db"
+
+  # HikariCP 连接池可选参数
+  pool:
+    maximumPoolSize: 10
+    minimumIdle: 2
+    connectionTimeout: 30000
+    idleTimeout: 600000
