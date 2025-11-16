@@ -8,7 +8,6 @@ import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 
-import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -93,6 +92,7 @@ public class VariableManager {
                 return CompletableFuture.completedFuture(false);
             }
             playerMap.get(player).put(id, variable);
+            plugin.getDatabaseManager().savePlayerVariables(player);
             return CompletableFuture.completedFuture(true);
         }
 
@@ -106,6 +106,7 @@ public class VariableManager {
                 return false;
             }
             playerMap.get(finalPlayer).put(id, variable);
+            plugin.getDatabaseManager().savePlayerVariables(finalPlayer);
             return true;
         });
     }

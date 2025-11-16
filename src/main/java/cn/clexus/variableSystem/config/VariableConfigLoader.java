@@ -60,31 +60,31 @@ public class VariableConfigLoader {
                     long expireAfter = expireAfterStr == null ? -1 : parseDuration(expireAfterStr);
                     switch (type.toLowerCase()) {
                         case "boolean" -> {
-                            Boolean d = config.getBoolean("default");
+                            Boolean d = section.getBoolean("default");
                             definitions.add(new VariableDefinition<>(key, d, Boolean.class, min, max, expireAt, expireAfter));
                         }
                         case "int" -> {
-                            Long d = config.getLong("default");
+                            Long d = section.getLong("default");
                             definitions.add(new VariableDefinition<>(key, d, Long.class, min, max, expireAt, expireAfter));
                         }
                         case "float" -> {
-                            Double d = config.getDouble("default");
+                            Double d = section.getDouble("default");
                             definitions.add(new VariableDefinition<>(key, d, Double.class, min, max, expireAt, expireAfter));
                         }
                         case "string" -> {
-                            String d = config.getString("default", "");
+                            String d = section.getString("default", "");
                             definitions.add(new VariableDefinition<>(key, d, String.class, min, max, expireAt, expireAfter));
                         }
                         case "numberlist" -> {
-                            List<Double> d = config.getDoubleList("default");
+                            List<Double> d = section.getDoubleList("default");
                             definitions.add(new VariableDefinition<>(key, d, List.class, min, max, expireAt, expireAfter));
                         }
                         case "stringlist" -> {
-                            List<String> d = config.getStringList("default");
+                            List<String> d = section.getStringList("default");
                             definitions.add(new VariableDefinition<>(key, d, List.class, min, max, expireAt, expireAfter));
                         }
                         case "stringnumbermap" -> {
-                            ConfigurationSection mapSection = config.getConfigurationSection("default");
+                            ConfigurationSection mapSection = section.getConfigurationSection("default");
                             Map<String, Double> d = new HashMap<>();
                             if(mapSection != null){
                                 mapSection.getKeys(false).forEach(str -> {
@@ -96,7 +96,7 @@ public class VariableConfigLoader {
                             definitions.add(new VariableDefinition<>(key, d, Map.class, min, max, expireAt, expireAfter));
                         }
                         case "stringstringmap" -> {
-                            ConfigurationSection mapSection = config.getConfigurationSection("default");
+                            ConfigurationSection mapSection = section.getConfigurationSection("default");
                             Map<String, String> d = new HashMap<>();
                             if(mapSection != null){
                                 mapSection.getKeys(false).forEach(str -> {

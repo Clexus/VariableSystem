@@ -44,11 +44,9 @@ public final class VariableSystem extends JavaPlugin {
         variableManager.loadGlobalVariables();
         getServer().getPluginManager().registerEvents(new EventListener(), this);
         new SyncAndExpireTask().runTaskTimer(this, 12000, 12000);
-        getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, commands -> {
-            commands.registrar().register(
-                    VariableCommand.register()
-            );
-        });
+        getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, commands -> commands.registrar().register(
+                VariableCommand.register()
+        ));
         PlaceholderAPISupport.init();
     }
 
@@ -63,7 +61,7 @@ public final class VariableSystem extends JavaPlugin {
     @Override
     public void onDisable() {
         info("正在保存数据...");
-        CompletableFuture<?>[] playerFutures = getServer().getOnlinePlayers().stream()
+        CompletableFuture<?>[] playerFutures = variableManager.getPlayerMap().keySet().stream()
                 .map(player -> databaseManager.savePlayerVariables(player))
                 .toArray(CompletableFuture[]::new);
 

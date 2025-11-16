@@ -11,16 +11,16 @@ import com.mojang.brigadier.tree.LiteralCommandNode;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
 import org.bukkit.Bukkit;
-import org.bukkit.entity.Player;
 
 import java.math.BigDecimal;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
+import static com.mojang.brigadier.arguments.IntegerArgumentType.integer;
 import static com.mojang.brigadier.arguments.StringArgumentType.string;
 
-@SuppressWarnings("SameReturnValue")
+@SuppressWarnings({"SameReturnValue", "unchecked", "DataFlowIssue"})
 public class VariableCommand {
 
     static VariableSystem plugin = VariableSystem.instance;
@@ -28,16 +28,32 @@ public class VariableCommand {
 
     public static LiteralCommandNode<CommandSourceStack> register() {
         return Commands.literal("var")
+                .requires(ctx -> ctx.getSender().hasPermission("variablesystem.admin"))
                 .then(Commands.literal("player")
                         .then(Commands.argument("player", string())
                                 .suggests((ctx, builder) -> {
-                                    Bukkit.getOnlinePlayers().forEach(player -> builder.suggest(player.getName()));
+                                        Bukkit.getOnlinePlayers().forEach(player -> builder.suggest(player.getName()));
                                     return builder.buildFuture();
                                 })
                                 .then(Commands.literal("list").executes(VariableCommand::listPlayer))
-                                .then(Commands.literal("get").then(Commands.argument("id", string())
-                                        .suggests(VariableCommand::suggestPlayerVariableId)
-                                        .executes(VariableCommand::getVariable)))
+                                .then(Commands.literal("get")
+                                        .then(Commands.argument("id", string())
+                                                .suggests(VariableCommand::suggestPlayerVariableId)
+                                                .executes(VariableCommand::getVariable)
+                                                .then(Commands.literal("at")
+                                                        .then(Commands.argument("index", integer())
+                                                                .suggests(VariableCommand::suggestIndexPlayer)
+                                                                .executes(VariableCommand::getVariable)
+                                                        )
+                                                )
+                                                .then(Commands.literal("from")
+                                                        .then(Commands.argument("key", string())
+                                                                .suggests(VariableCommand::suggestKeyPlayer)
+                                                                .executes(VariableCommand::getVariable)
+                                                        )
+                                                )
+                                        )
+                                )
                                 .then(Commands.literal("create").then(Commands.argument("id", string())
                                         .suggests(VariableCommand::suggestVariableId)
                                         .executes(VariableCommand::createVariableNoValue)
@@ -61,6 +77,30 @@ public class VariableCommand {
                                         .then(Commands.argument("value", string())
                                                 .suggests(VariableCommand::suggestValue)
                                                 .executes(VariableCommand::setVariable))))
+                                .then(Commands.literal("setAt")
+                                        .then(Commands.argument("id", string())
+                                                .suggests(VariableCommand::suggestPlayerListVariableId)
+                                                .then(Commands.argument("index", integer())
+                                                        .suggests(VariableCommand::suggestIndexPlayer)
+                                                        .then(Commands.argument("value", string())
+                                                                .suggests(VariableCommand::suggestValueAtIndexPlayer)
+                                                                .executes(VariableCommand::setVariableAtPlayer)
+                                                        )
+                                                )
+                                        )
+                                )
+                                .then(Commands.literal("setFrom")
+                                        .then(Commands.argument("id", string())
+                                                .suggests(VariableCommand::suggestPlayerMapVariableId)
+                                                .then(Commands.argument("key", string())
+                                                        .suggests(VariableCommand::suggestKeyPlayer)
+                                                        .then(Commands.argument("value", string())
+                                                                .suggests(VariableCommand::suggestValueAtKeyPlayer)
+                                                                .executes(VariableCommand::setVariableFromPlayer)
+                                                        )
+                                                )
+                                        )
+                                )
                                 .then(Commands.literal("take").then(Commands.argument("id", string())
                                                 .suggests(VariableCommand::suggestAddableVariableId)
                                                 .then(Commands.argument("value", string())
@@ -69,6 +109,24 @@ public class VariableCommand {
                                                         .then(Commands.argument("autoFix", BoolArgumentType.bool())
                                                                 .executes(VariableCommand::takeVariable)
                                                         )
+                                                )
+                                        )
+                                )
+                                .then(Commands.literal("takeAt")
+                                        .then(Commands.argument("id", string())
+                                                .suggests(VariableCommand::suggestPlayerListVariableId)
+                                                .then(Commands.argument("index", integer())
+                                                        .suggests(VariableCommand::suggestIndexPlayer)
+                                                        .executes(VariableCommand::takeVariableAtPlayer)
+                                                )
+                                        )
+                                )
+                                .then(Commands.literal("takeFrom")
+                                        .then(Commands.argument("id", string())
+                                                .suggests(VariableCommand::suggestPlayerMapVariableId)
+                                                .then(Commands.argument("key", string())
+                                                        .suggests(VariableCommand::suggestKeyPlayer)
+                                                        .executes(VariableCommand::takeVariableFromPlayer)
                                                 )
                                         )
                                 )
@@ -90,6 +148,18 @@ public class VariableCommand {
                                 .then(Commands.argument("id", string())
                                         .suggests(VariableCommand::suggestGlobal)
                                         .executes(VariableCommand::getVariableGlobal)
+                                        .then(Commands.literal("at")
+                                                .then(Commands.argument("index", integer())
+                                                        .suggests(VariableCommand::suggestIndexGlobal)
+                                                        .executes(VariableCommand::getVariableGlobal)
+                                                )
+                                        )
+                                        .then(Commands.literal("from")
+                                                .then(Commands.argument("key", string())
+                                                        .suggests(VariableCommand::suggestKeyGlobal)
+                                                        .executes(VariableCommand::getVariableGlobal)
+                                                )
+                                        )
                                 )
                         )
                         .then(Commands.literal("create")
@@ -120,6 +190,30 @@ public class VariableCommand {
                                         .suggests(VariableCommand::suggestValueGlobal)
                                         .executes(VariableCommand::setVariableGlobal)))
                         )
+                        .then(Commands.literal("setAt")
+                                .then(Commands.argument("id", string())
+                                        .suggests(VariableCommand::suggestGlobalListVariableId)
+                                        .then(Commands.argument("index", integer())
+                                                .suggests(VariableCommand::suggestIndexGlobal)
+                                                .then(Commands.argument("value", string())
+                                                        .suggests(VariableCommand::suggestValueAtIndexGlobal)
+                                                        .executes(VariableCommand::setVariableAtGlobal)
+                                                )
+                                        )
+                                )
+                        )
+                        .then(Commands.literal("setFrom")
+                                .then(Commands.argument("id", string())
+                                        .suggests(VariableCommand::suggestGlobalMapVariableId)
+                                        .then(Commands.argument("key", string())
+                                                .suggests(VariableCommand::suggestKeyGlobal)
+                                                .then(Commands.argument("value", string())
+                                                        .suggests(VariableCommand::suggestValueAtKeyGlobal)
+                                                        .executes(VariableCommand::setVariableFromGlobal)
+                                                )
+                                        )
+                                )
+                        )
                         .then(Commands.literal("take").then(Commands.argument("id", string())
                                         .suggests(VariableCommand::suggestAddableVariableIdGlobal)
                                         .then(Commands.argument("value", string())
@@ -128,6 +222,24 @@ public class VariableCommand {
                                                 .then(Commands.argument("autoFix", BoolArgumentType.bool())
                                                         .executes(VariableCommand::takeVariableGlobal)
                                                 )
+                                        )
+                                )
+                        )
+                        .then(Commands.literal("takeAt")
+                                .then(Commands.argument("id", string())
+                                        .suggests(VariableCommand::suggestGlobalListVariableId)
+                                        .then(Commands.argument("index", integer())
+                                                .suggests(VariableCommand::suggestIndexGlobal)
+                                                .executes(VariableCommand::takeVariableAtGlobal)
+                                        )
+                                )
+                        )
+                        .then(Commands.literal("takeFrom")
+                                .then(Commands.argument("id", string())
+                                        .suggests(VariableCommand::suggestGlobalMapVariableId)
+                                        .then(Commands.argument("key", string())
+                                                .suggests(VariableCommand::suggestKeyGlobal)
+                                                .executes(VariableCommand::takeVariableFromGlobal)
                                         )
                                 )
                         )
@@ -199,10 +311,165 @@ public class VariableCommand {
         return builder.buildFuture();
     }
 
+    private static CompletableFuture<Suggestions> suggestIndexPlayer(CommandContext<CommandSourceStack> ctx, SuggestionsBuilder builder) {
+        String pName, varId;
+        pName = ctx.getArgument("player", String.class);
+        varId = ctx.getArgument("id", String.class);
+        return plugin.getVariableManager().getVariable(pName, varId).thenApply(result -> {
+            if (result == null || result.getValue() instanceof Map) return builder.build();
+            List<?> value = (List<?>) result.getValue();
+            for (int i = 0; i < value.size(); i++) {
+                builder.suggest(i);
+            }
+            return builder.build();
+        });
+    }
+
+    private static CompletableFuture<Suggestions> suggestValueAtIndexPlayer(CommandContext<CommandSourceStack> ctx, SuggestionsBuilder builder) {
+        String pName, varId;
+        pName = ctx.getArgument("player", String.class);
+        varId = ctx.getArgument("id", String.class);
+        int index = ctx.getArgument("index", int.class);
+        return plugin.getVariableManager().getVariable(pName, varId).thenApply(result -> {
+            if (result == null || !(result.getValue() instanceof List<?> value)) return builder.build();
+            if (index >= value.size() || index < 0) return builder.build();
+            builder.suggest(value.get(index).toString());
+            return builder.build();
+        });
+    }
+
+    private static CompletableFuture<Suggestions> suggestValueAtKeyPlayer(CommandContext<CommandSourceStack> ctx, SuggestionsBuilder builder) {
+        String pName, varId, key;
+        pName = ctx.getArgument("player", String.class);
+        varId = ctx.getArgument("id", String.class);
+        key = ctx.getArgument("key", String.class);
+        return plugin.getVariableManager().getVariable(pName, varId).thenApply(result -> {
+            if (result == null || !(result.getValue() instanceof Map<?, ?> map)) return builder.build();
+            if (!map.containsKey(key)) return builder.build();
+            builder.suggest(map.get(key).toString());
+            return builder.build();
+        });
+    }
+
+    private static CompletableFuture<Suggestions> suggestValueAtIndexGlobal(CommandContext<CommandSourceStack> ctx, SuggestionsBuilder builder) {
+        String varId = ctx.getArgument("id", String.class);
+        int index = ctx.getArgument("index", int.class);
+        var result = plugin.getVariableManager().getGlobalVariable(varId);
+        if (result == null || !(result.getValue() instanceof List<?> value)) return builder.buildFuture();
+        if (index >= value.size() || index < 0) return builder.buildFuture();
+        builder.suggest(value.get(index).toString());
+        return builder.buildFuture();
+    }
+
+    private static CompletableFuture<Suggestions> suggestValueAtKeyGlobal(CommandContext<CommandSourceStack> ctx, SuggestionsBuilder builder) {
+        String varId, key;
+        varId = ctx.getArgument("id", String.class);
+        key = ctx.getArgument("key", String.class);
+        var result = plugin.getVariableManager().getGlobalVariable(varId);
+        if (result == null || !(result.getValue() instanceof Map<?, ?> map)) return builder.buildFuture();
+        if (!map.containsKey(key)) return builder.buildFuture();
+        builder.suggest(map.get(key).toString());
+        return builder.buildFuture();
+    }
+
+    private static CompletableFuture<Suggestions> suggestKeyPlayer(CommandContext<CommandSourceStack> ctx, SuggestionsBuilder builder) {
+        String pName, varId;
+        pName = ctx.getArgument("player", String.class);
+        varId = ctx.getArgument("id", String.class);
+        return plugin.getVariableManager().getVariable(pName, varId).thenApply(result -> {
+            if (result == null || result instanceof List<?>) return builder.build();
+            Map<?, ?> value = (Map<?, ?>) result.getValue();
+            value.keySet().forEach(key -> builder.suggest((String) key));
+            return builder.build();
+        });
+    }
+
+    private static CompletableFuture<Suggestions> suggestIndexGlobal(CommandContext<CommandSourceStack> ctx, SuggestionsBuilder builder) {
+        String varId;
+        varId = ctx.getArgument("id", String.class);
+        var result = plugin.getVariableManager().getGlobalVariable(varId);
+        if (result == null || result.getValue() instanceof Map) return builder.buildFuture();
+        List<?> value = (List<?>) result.getValue();
+        for (int i = 0; i < value.size(); i++) {
+            builder.suggest(i);
+        }
+        return builder.buildFuture();
+    }
+
+    private static CompletableFuture<Suggestions> suggestKeyGlobal(CommandContext<CommandSourceStack> ctx, SuggestionsBuilder builder) {
+        String varId;
+        varId = ctx.getArgument("id", String.class);
+        var result = plugin.getVariableManager().getGlobalVariable(varId);
+        if (result == null || result instanceof List<?>) return builder.buildFuture();
+        Map<?, ?> value = (Map<?, ?>) result.getValue();
+        value.keySet().forEach(key -> builder.suggest((String) key));
+        return builder.buildFuture();
+    }
+
     private static CompletableFuture<Suggestions> suggestGlobal(CommandContext<CommandSourceStack> ctx, SuggestionsBuilder builder) {
         for (var variable : plugin.getVariableManager().getGlobalMap().keySet()) {
             builder.suggest(variable);
         }
+        return builder.buildFuture();
+    }
+
+    private static CompletableFuture<Suggestions> suggestPlayerListVariableId(CommandContext<CommandSourceStack> ctx, SuggestionsBuilder builder) {
+        String playerName;
+        try {
+            playerName = ctx.getArgument("player", String.class);
+        } catch (IllegalArgumentException ex) {
+            return builder.buildFuture();
+        }
+        return plugin.getVariableManager().getVariables(playerName)
+                .thenApply(variables -> {
+                    if (variables != null) {
+                        for (var variable : variables.values()) {
+                            if (variable.getVariableDefinition().type() == List.class) {
+                                builder.suggest(variable.getVariableDefinition().id());
+                            }
+                        }
+                    }
+                    return builder.build();
+                });
+    }
+
+    private static CompletableFuture<Suggestions> suggestPlayerMapVariableId(CommandContext<CommandSourceStack> ctx, SuggestionsBuilder builder) {
+        String playerName;
+        try {
+            playerName = ctx.getArgument("player", String.class);
+        } catch (IllegalArgumentException ex) {
+            return builder.buildFuture();
+        }
+        return plugin.getVariableManager().getVariables(playerName)
+                .thenApply(variables -> {
+                    if (variables != null) {
+                        for (var variable : variables.values()) {
+                            if (variable.getVariableDefinition().type() == Map.class) {
+                                builder.suggest(variable.getVariableDefinition().id());
+                            }
+                        }
+                    }
+                    return builder.build();
+                });
+    }
+
+    private static CompletableFuture<Suggestions> suggestGlobalListVariableId(CommandContext<CommandSourceStack> ctx, SuggestionsBuilder builder) {
+        plugin.getVariableManager().getGlobalMap()
+                .values().forEach(variable -> {
+                    if (variable.getVariableDefinition().type() == List.class) {
+                        builder.suggest(variable.getVariableDefinition().id());
+                    }
+                });
+        return builder.buildFuture();
+    }
+
+    private static CompletableFuture<Suggestions> suggestGlobalMapVariableId(CommandContext<CommandSourceStack> ctx, SuggestionsBuilder builder) {
+        plugin.getVariableManager().getGlobalMap()
+                .values().forEach(variable -> {
+                    if (variable.getVariableDefinition().type() == Map.class) {
+                        builder.suggest(variable.getVariableDefinition().id());
+                    }
+                });
         return builder.buildFuture();
     }
 
@@ -223,7 +490,6 @@ public class VariableCommand {
                     return builder.build();
                 });
     }
-
 
     private static CompletableFuture<Suggestions> suggestVariableId(CommandContext<CommandSourceStack> ctx, SuggestionsBuilder builder) {
         plugin.getLoader().getDefinitions().forEach(def -> builder.suggest(def.id()));
@@ -276,16 +542,7 @@ public class VariableCommand {
 
         var var = vars.get(varId);
         if (var != null) {
-            Object value = var.getValue();
-
-            if (value instanceof List<?>) {
-                for (Object v : (List<?>) value) builder.suggest(v.toString());
-            } else if (value instanceof Map<?, ?>) {
-                for (Map.Entry<?, ?> e : ((Map<?, ?>) value).entrySet())
-                    builder.suggest(e.getKey() + "," + e.getValue());
-            } else if (value != null) {
-                builder.suggest(value.toString());
-            }
+            builder.suggest("\"" + var.valueAsString() + "\"");
         }
         return builder.buildFuture();
     }
@@ -309,16 +566,7 @@ public class VariableCommand {
             if (var == null) var = vars.get(varId.toLowerCase());
 
             if (var != null) {
-                Object value = var.getValue();
-
-                if (value instanceof List<?>) {
-                    for (Object v : (List<?>) value) builder.suggest(v.toString());
-                } else if (value instanceof Map<?, ?>) {
-                    for (Map.Entry<?, ?> e : ((Map<?, ?>) value).entrySet())
-                        builder.suggest(e.getKey() + "," + e.getValue());
-                } else if (value != null) {
-                    builder.suggest(value.toString());
-                }
+                builder.suggest("\"" + var.valueAsString() + "\"");
             }
             return builder.build();
         });
@@ -352,11 +600,37 @@ public class VariableCommand {
 
     private static int getVariableGlobal(CommandContext<CommandSourceStack> ctx) {
         String id = ctx.getArgument("id", String.class);
+        int index = -1;
+        String key = null;
+        try {
+            index = ctx.getArgument("index", Integer.class);
+        } catch (IllegalArgumentException ignored) {
+        }
+        try {
+            key = ctx.getArgument("key", String.class);
+        } catch (IllegalArgumentException ignored) {
+        }
         Variable<?> var = plugin.getVariableManager().getGlobalVariable(id);
         if (var == null) {
             sendMessage(ctx, "该变量不存在");
         } else {
-            sendVar(ctx, var);
+            if (index == -1 && key == null) {
+                sendVar(ctx, var);
+            } else if (index != -1) {
+                Object value = var.getValue();
+                if (value instanceof List<?> list) {
+                    sendMessage(ctx, String.valueOf(list.get(index)));
+                } else {
+                    sendMessage(ctx, "该变量不是列表类型");
+                }
+            } else {
+                Object value = var.getValue();
+                if (value instanceof Map<?, ?> map) {
+                    sendMessage(ctx, String.valueOf(map.get(key)));
+                } else {
+                    sendMessage(ctx, "该变量不是表类型");
+                }
+            }
         }
         return Command.SINGLE_SUCCESS;
     }
@@ -364,7 +638,39 @@ public class VariableCommand {
     private static int getVariable(CommandContext<CommandSourceStack> ctx) {
         String playerName = ctx.getArgument("player", String.class);
         String id = ctx.getArgument("id", String.class);
-        plugin.getVariableManager().getVariable(playerName, id).thenAccept(var-> sendVar(ctx, var));
+        int index = -1;
+        String key = null;
+        try {
+            index = ctx.getArgument("index", Integer.class);
+        } catch (IllegalArgumentException ignored) {
+        }
+        try {
+            key = ctx.getArgument("key", String.class);
+        } catch (IllegalArgumentException ignored) {
+        }
+        if (index == -1 && key == null) {
+            plugin.getVariableManager().getVariable(playerName, id).thenAccept(var -> sendVar(ctx, var));
+        } else if (index != -1) {
+            int finalIndex = index;
+            plugin.getVariableManager().getVariable(playerName, id).thenAccept(var -> {
+                Object value = var.getValue();
+                if (value instanceof List<?> list) {
+                    sendMessage(ctx, String.valueOf(list.get(finalIndex)));
+                } else {
+                    sendMessage(ctx, "该变量不是列表类型");
+                }
+            });
+        } else {
+            String finalKey = key;
+            plugin.getVariableManager().getVariable(playerName, id).thenAccept(var -> {
+                Object value = var.getValue();
+                if (value instanceof Map<?, ?> map) {
+                    sendMessage(ctx, String.valueOf(map.get(finalKey)));
+                } else {
+                    sendMessage(ctx, "该变量不是表类型");
+                }
+            });
+        }
         return Command.SINGLE_SUCCESS;
     }
 
@@ -375,7 +681,12 @@ public class VariableCommand {
         } else {
             sendMessage(ctx, "过期时间: " + dateFormat.format(new Date(v.getExpireTime())));
         }
-        sendMessage(ctx, v.getValue().toString());
+        sendMessage(ctx, "变量值: " + v.valueAsString());
+        if (v.getValue() instanceof List<?> list) {
+            sendMessage(ctx, "变量长度: " + list.size());
+        } else if (v.getValue() instanceof Map<?, ?> map) {
+            sendMessage(ctx, "变量长度: " + map.size());
+        }
     }
 
     private static int createVariableNoValueGlobal(CommandContext<CommandSourceStack> ctx) {
@@ -489,6 +800,10 @@ public class VariableCommand {
             sendMessage(ctx, "变量不存在");
             return Command.SINGLE_SUCCESS;
         }
+        return addVar(ctx, id, value, autoFix, variable);
+    }
+
+    private static int addVar(CommandContext<CommandSourceStack> ctx, String id, String value, boolean autoFix, Variable<?> variable) {
         switch (variable) {
             case StringVariable stringVariable -> stringVariable.add(value, autoFix);
             case IntVariable intVariable -> intVariable.add(Long.parseLong(value), autoFix);
@@ -504,6 +819,197 @@ public class VariableCommand {
         return Command.SINGLE_SUCCESS;
     }
 
+    private static int setVariableAtPlayer(CommandContext<CommandSourceStack> ctx) {
+        String id = ctx.getArgument("id", String.class);
+        String player = ctx.getArgument("player", String.class);
+        int index = ctx.getArgument("index", Integer.class);
+        String value = ctx.getArgument("value", String.class);
+        var variable = plugin.getVariableManager().getVariable(player, id).join();
+        return setAt(ctx, index, value, variable);
+    }
+
+    private static int setAt(CommandContext<CommandSourceStack> ctx, int index, String value, Variable<?> variable) {
+        switch (variable) {
+            case null -> {
+                sendMessage(ctx, "变量不存在");
+                return Command.SINGLE_SUCCESS;
+            }
+            case NumberList list -> {
+                List<Double> origin = list.getValue();
+                if (index < 0 || origin.size() <= index) {
+                    sendMessage(ctx, "索引超出列表范围，有效值为0-" + (origin.size() - 1));
+                    return Command.SINGLE_SUCCESS;
+                }
+                try {
+                    double d = Double.parseDouble(value);
+                    origin.set(index, d);
+                    sendMessage(ctx, "变量设置完成");
+                } catch (Exception e) {
+                    sendMessage(ctx, value + "不是有效的数字");
+                    return Command.SINGLE_SUCCESS;
+                }
+            }
+            case StringList stringList -> {
+                List<String> origin = stringList.getValue();
+                if (index < 0 || origin.size() <= index) {
+                    sendMessage(ctx, "索引超出列表范围，有效值为0-" + (origin.size() - 1));
+                    return Command.SINGLE_SUCCESS;
+                }
+                origin.set(index, value);
+                sendMessage(ctx, "变量设置完成");
+            }
+            default -> sendMessage(ctx, "该变量不是列表类型");
+        }
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int takeVariableAtPlayer(CommandContext<CommandSourceStack> ctx) {
+        String id = ctx.getArgument("id", String.class);
+        String player = ctx.getArgument("player", String.class);
+        int index = ctx.getArgument("index", Integer.class);
+        var variable = plugin.getVariableManager().getVariable(player, id).join();
+        return takeAt(ctx, index, variable);
+    }
+
+    private static int takeAt(CommandContext<CommandSourceStack> ctx, int index, Variable<?> variable) {
+        switch (variable) {
+            case null -> {
+                sendMessage(ctx, "变量不存在");
+                return Command.SINGLE_SUCCESS;
+            }
+            case NumberList list -> {
+                List<Double> origin = list.getValue();
+                if (index < 0 || origin.size() <= index) {
+                    sendMessage(ctx, "索引超出列表范围，有效值为0-" + (origin.size() - 1));
+                    return Command.SINGLE_SUCCESS;
+                }
+                origin.remove(index);
+                sendMessage(ctx, "变量减少成功");
+            }
+            case StringList list -> {
+                List<String> origin = list.getValue();
+                if (index < 0 || origin.size() <= index) {
+                    sendMessage(ctx, "索引超出列表范围，有效值为0-" + (origin.size() - 1));
+                    return Command.SINGLE_SUCCESS;
+                }
+                origin.remove(index);
+                sendMessage(ctx, "变量减少成功");
+            }
+            default -> sendMessage(ctx, "该变量不是列表类型");
+        }
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int setVariableFromPlayer(CommandContext<CommandSourceStack> ctx) {
+        String id = ctx.getArgument("id", String.class);
+        String player = ctx.getArgument("player", String.class);
+        String key = ctx.getArgument("key", String.class);
+        String value = ctx.getArgument("value", String.class);
+        var variable = plugin.getVariableManager().getVariable(player, id).join();
+        return setFrom(ctx, key, value, variable);
+    }
+
+    private static int setFrom(CommandContext<CommandSourceStack> ctx, String key, String value, Variable<?> variable) {
+        switch (variable) {
+            case null -> {
+                sendMessage(ctx, "变量不存在");
+                return Command.SINGLE_SUCCESS;
+            }
+            case StringNumberMap map -> {
+                Map<String, Double> origin = map.getValue();
+                if (!origin.containsKey(key)) {
+                    sendMessage(ctx, "表中没有对应键");
+                    return Command.SINGLE_SUCCESS;
+                }
+                try {
+                    double d = Double.parseDouble(value);
+                    origin.put(key, d);
+                    sendMessage(ctx, "变量设置完成");
+                } catch (Exception e) {
+                    sendMessage(ctx, value + "不是有效的数字");
+                }
+            }
+            case StringStringMap map -> {
+                Map<String, String> origin = map.getValue();
+                if (!origin.containsKey(key)) {
+                    sendMessage(ctx, "表中没有对应键");
+                    return Command.SINGLE_SUCCESS;
+                }
+                origin.put(key, value);
+                sendMessage(ctx, "变量设置完成");
+            }
+            default -> sendMessage(ctx, "该变量不是列表类型");
+        }
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int takeVariableFromPlayer(CommandContext<CommandSourceStack> ctx) {
+        String id = ctx.getArgument("id", String.class);
+        String player = ctx.getArgument("player", String.class);
+        String key = ctx.getArgument("key", String.class);
+        var variable = plugin.getVariableManager().getVariable(player, id).join();
+        return takeFrom(ctx, key, variable);
+    }
+
+    private static int takeFrom(CommandContext<CommandSourceStack> ctx, String key, Variable<?> variable) {
+        switch (variable) {
+            case null -> {
+                sendMessage(ctx, "变量不存在");
+                return Command.SINGLE_SUCCESS;
+            }
+            case StringNumberMap map -> {
+                Map<String, Double> origin = map.getValue();
+                if (!origin.containsKey(key)) {
+                    sendMessage(ctx, "表中没有对应键");
+                    return Command.SINGLE_SUCCESS;
+                }
+                origin.remove(key);
+                sendMessage(ctx, "变量减少成功");
+            }
+            case StringStringMap map -> {
+                Map<String, String> origin = map.getValue();
+                if (!origin.containsKey(key)) {
+                    sendMessage(ctx, "表中没有对应键");
+                    return Command.SINGLE_SUCCESS;
+                }
+                origin.remove(key);
+                sendMessage(ctx, "变量减少成功");
+            }
+            default -> sendMessage(ctx, "该变量不是列表类型");
+        }
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int setVariableAtGlobal(CommandContext<CommandSourceStack> ctx) {
+        String id = ctx.getArgument("id", String.class);
+        int index = ctx.getArgument("index", Integer.class);
+        String value = ctx.getArgument("value", String.class);
+        var variable = plugin.getVariableManager().getGlobalVariable(id);
+        return setAt(ctx, index, value, variable);
+    }
+
+    private static int takeVariableAtGlobal(CommandContext<CommandSourceStack> ctx) {
+        String id = ctx.getArgument("id", String.class);
+        int index = ctx.getArgument("index", Integer.class);
+        var variable = plugin.getVariableManager().getGlobalVariable(id);
+        return takeAt(ctx, index, variable);
+    }
+
+    private static int setVariableFromGlobal(CommandContext<CommandSourceStack> ctx) {
+        String id = ctx.getArgument("id", String.class);
+        String key = ctx.getArgument("key", String.class);
+        String value = ctx.getArgument("value", String.class);
+        var variable = plugin.getVariableManager().getGlobalVariable(id);
+        return setFrom(ctx, key, value, variable);
+    }
+
+    private static int takeVariableFromGlobal(CommandContext<CommandSourceStack> ctx) {
+        String id = ctx.getArgument("id", String.class);
+        String key = ctx.getArgument("key", String.class);
+        var variable = plugin.getVariableManager().getGlobalVariable(id);
+        return takeFrom(ctx, key, variable);
+    }
+
     private static int setVariableGlobal(CommandContext<CommandSourceStack> ctx) {
         String id = ctx.getArgument("id", String.class);
         String value = ctx.getArgument("value", String.class);
@@ -512,6 +1018,10 @@ public class VariableCommand {
             sendMessage(ctx, "变量不存在");
             return Command.SINGLE_SUCCESS;
         }
+        return setVar(ctx, value, variable);
+    }
+
+    private static int setVar(CommandContext<CommandSourceStack> ctx, String value, Variable<?> variable) {
         switch (variable) {
             case StringVariable stringVariable -> stringVariable.setValue(value);
             case IntVariable intVariable -> intVariable.setValue(Long.parseLong(value));
@@ -540,6 +1050,10 @@ public class VariableCommand {
             sendMessage(ctx, "变量不存在");
             return Command.SINGLE_SUCCESS;
         }
+        return takeVar(ctx, id, value, autoFix, variable);
+    }
+
+    private static int takeVar(CommandContext<CommandSourceStack> ctx, String id, String value, boolean autoFix, Variable<?> variable) {
         switch (variable) {
             case StringVariable stringVariable -> stringVariable.take(value, autoFix);
             case IntVariable intVariable -> intVariable.take(Long.parseLong(value), autoFix);
@@ -581,19 +1095,7 @@ public class VariableCommand {
             sendMessage(ctx, "变量不存在");
             return Command.SINGLE_SUCCESS;
         }
-        switch (variable) {
-            case StringVariable stringVariable -> stringVariable.add(value, autoFix);
-            case IntVariable intVariable -> intVariable.add(Long.parseLong(value), autoFix);
-            case BooleanVariable booleanVariable -> booleanVariable.add(Boolean.parseBoolean(value), autoFix);
-            case FloatVariable floatVariable -> floatVariable.add(Float.parseFloat(value), autoFix);
-            case StringList stringList -> stringList.add(castTo(List.class, value), autoFix);
-            case NumberList numberList -> numberList.add(castTo(List.class, value), autoFix);
-            case StringStringMap stringStringMap -> stringStringMap.add(castTo(Map.class, value), autoFix);
-            case StringNumberMap stringNumberMap -> stringNumberMap.add(castTo(Map.class, value), autoFix);
-            default -> variable.add(null);
-        }
-        sendMessage(ctx, "变量增加成功: " + id);
-        return Command.SINGLE_SUCCESS;
+        return addVar(ctx, id, value, autoFix, variable);
     }
 
     private static int setVariable(CommandContext<CommandSourceStack> ctx) {
@@ -605,19 +1107,7 @@ public class VariableCommand {
             sendMessage(ctx, "变量不存在");
             return Command.SINGLE_SUCCESS;
         }
-        switch (variable) {
-            case StringVariable stringVariable -> stringVariable.setValue(value);
-            case IntVariable intVariable -> intVariable.setValue(Long.parseLong(value));
-            case BooleanVariable booleanVariable -> booleanVariable.setValue(Boolean.parseBoolean(value));
-            case FloatVariable floatVariable -> floatVariable.setValue(Float.parseFloat(value));
-            case StringList stringList -> stringList.setValue(castTo(List.class, value));
-            case NumberList numberList -> numberList.setValue(castTo(List.class, value));
-            case StringStringMap stringStringMap -> stringStringMap.setValue(castTo(Map.class, value));
-            case StringNumberMap stringNumberMap -> stringNumberMap.setValue(castTo(Map.class, value));
-            default -> variable.setValue(null);
-        }
-        sendMessage(ctx, "变量设置成功");
-        return Command.SINGLE_SUCCESS;
+        return setVar(ctx, value, variable);
     }
 
     private static int takeVariable(CommandContext<CommandSourceStack> ctx) {
@@ -634,26 +1124,14 @@ public class VariableCommand {
             sendMessage(ctx, "变量不存在");
             return Command.SINGLE_SUCCESS;
         }
-        switch (variable) {
-            case StringVariable stringVariable -> stringVariable.take(value, autoFix);
-            case IntVariable intVariable -> intVariable.take(Long.parseLong(value), autoFix);
-            case BooleanVariable booleanVariable -> booleanVariable.take(Boolean.parseBoolean(value), autoFix);
-            case FloatVariable floatVariable -> floatVariable.take(Float.parseFloat(value), autoFix);
-            case StringList stringList -> stringList.take(castTo(List.class, value), autoFix);
-            case NumberList numberList -> numberList.take(castTo(List.class, value), autoFix);
-            case StringStringMap stringStringMap -> stringStringMap.take(castTo(Map.class, value), autoFix);
-            case StringNumberMap stringNumberMap -> stringNumberMap.take(castTo(Map.class, value), autoFix);
-            default -> variable.take(null);
-        }
-        sendMessage(ctx, "变量减少成功: " + id);
-        return Command.SINGLE_SUCCESS;
+        return takeVar(ctx, id, value, autoFix, variable);
     }
 
     private static int resetGlobalVariable(CommandContext<CommandSourceStack> ctx) {
         String id = ctx.getArgument("id", String.class);
         var var = plugin.getVariableManager().getGlobalVariable(id);
         var.reset();
-        sendMessage(ctx, "已将变量 "+ id +" 重置为默认值 "+Variable.valueAsString(var.getVariableDefinition().defaultValue()));
+        sendMessage(ctx, "已将变量 " + id + " 重置为默认值 " + Variable.valueAsString(var.getVariableDefinition().defaultValue()));
         return Command.SINGLE_SUCCESS;
     }
 
@@ -662,7 +1140,7 @@ public class VariableCommand {
         String id = ctx.getArgument("id", String.class);
         plugin.getVariableManager().getVariable(playerName, id).thenAccept(var -> {
             var.reset();
-            sendMessage(ctx, "已将变量 "+ id +" 重置为默认值 "+Variable.valueAsString(var.getVariableDefinition().defaultValue()));
+            sendMessage(ctx, "已将变量 " + id + " 重置为默认值 " + Variable.valueAsString(var.getVariableDefinition().defaultValue()));
         });
         return Command.SINGLE_SUCCESS;
     }
