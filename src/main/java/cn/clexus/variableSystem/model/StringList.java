@@ -1,5 +1,6 @@
 package cn.clexus.variableSystem.model;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class StringList extends Variable<List<String>> {
@@ -43,26 +44,42 @@ public class StringList extends Variable<List<String>> {
     }
 
     @Override
-    public ValidateResult take(List<String> value, boolean autoFix) {
-        boolean contains = value.stream().anyMatch(this.value::contains);
-        if (!contains) {
-            return ValidateResult.NOOP;
-        }
-
+    public ValidateResult take(List<String> input, boolean autoFix) {
         int min = variableDefinition.minValue().intValue();
-        int newSize = this.value.size() - value.size();
+        List<String> original = this.value;
 
-        if (newSize < min) {
-            if (autoFix) {
-                int canRemove = this.value.size() - min;
-                this.value.removeAll(value.subList(0, Math.min(canRemove, value.size())));
+        boolean anyMatch = input.stream().anyMatch(original::contains);
+        if (!anyMatch) return ValidateResult.NOOP;
+
+        if (!autoFix) {
+            List<String> sim = new ArrayList<>(original);
+            for (String v : input) {
+                sim.remove(v);
             }
-            return ValidateResult.BELOW_MIN;
+            if (sim.size() < min) {
+                return ValidateResult.BELOW_MIN;
+            }
+            this.value = sim;
+            return ValidateResult.PASS;
         }
 
-        this.value.removeAll(value);
-        return ValidateResult.PASS;
+        List<String> working = new ArrayList<>(original);
+        boolean removedAny = false;
+        for (String v : input) {
+            if (working.size() <= min) break;
+            boolean removed = working.remove(v);
+            if (removed) {
+                removedAny = true;
+            }
+        }
+
+        if (!removedAny) return ValidateResult.NOOP;
+
+        this.value = working;
+        return this.value.size() >= min ? ValidateResult.PASS : ValidateResult.BELOW_MIN;
     }
+
+
 
 
     public ValidateResult take(String value) {

@@ -1,5 +1,6 @@
 package cn.clexus.variableSystem.model;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class NumberList extends Variable<List<Double>> {
@@ -44,24 +45,38 @@ public class NumberList extends Variable<List<Double>> {
 
     @Override
     public ValidateResult take(List<Double> value, boolean autoFix) {
-        boolean contains = value.stream().anyMatch(this.value::contains);
-        if (!contains) {
-            return ValidateResult.NOOP;
-        }
-
         int min = variableDefinition.minValue().intValue();
-        int newSize = this.value.size() - value.size();
+        List<Double> original = this.value;
 
-        if (newSize < min) {
-            if (autoFix) {
-                int canRemove = this.value.size() - min;
-                this.value.removeAll(value.subList(0, Math.min(canRemove, value.size())));
+        boolean anyMatch = value.stream().anyMatch(original::contains);
+        if (!anyMatch) return ValidateResult.NOOP;
+
+        if (!autoFix) {
+            List<Double> sim = new ArrayList<>(original);
+            for (Double v : value) {
+                sim.remove(v);
             }
-            return ValidateResult.BELOW_MIN;
+            if (sim.size() < min) {
+                return ValidateResult.BELOW_MIN;
+            }
+            this.value = sim;
+            return ValidateResult.PASS;
         }
 
-        this.value.removeAll(value);
-        return ValidateResult.PASS;
+        List<Double> working = new ArrayList<>(original);
+        boolean removedAny = false;
+        for (Double v : value) {
+            if (working.size() <= min) break;
+            boolean removed = working.remove(v);
+            if (removed) {
+                removedAny = true;
+            }
+        }
+
+        if (!removedAny) return ValidateResult.NOOP;
+
+        this.value = working;
+        return this.value.size() >= min ? ValidateResult.PASS : ValidateResult.BELOW_MIN;
     }
 
 
