@@ -10,7 +10,6 @@ import java.util.regex.Pattern;
 
 public class PlaceholderAPISupport {
     public static boolean usePlaceholderAPI = true;
-    static PlaceholderAPIPlugin papiPlugin;
     private static boolean hasSupport = false;
     public static boolean hasSupport(){
         return hasSupport;
