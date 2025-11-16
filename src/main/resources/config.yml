@@ -1,5 +1,5 @@
 # 是否启用数据库连接
-connect: true
+connect: false
 
 #以UUID储存玩家数据而非玩家名
 #如果你是离线服务器可以设置为false，数据可读性好点
